@@ -10,7 +10,7 @@ class ThreadPoll:
         self.waiting = []
         self.lock = threading.Lock()
         self.count = 0
-        self.actived_threads = []
+        self.active_threads = []
 
     def execute(self, method=None, args=None):
         # If we dont have a limit of threads, just start a new one
