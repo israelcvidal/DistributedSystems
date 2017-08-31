@@ -1,6 +1,4 @@
-# Assignments of Distibuted System's course of Federal University of Cear√°(UFC), Brazil #
-
-This README would normally document whatever steps are necessary to get your application up and running.
+# Assignments of Distibuted System's course of Federal University of Cear·(UFC), Brazil #
 
 ### 1. Threads ###
 
