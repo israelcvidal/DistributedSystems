@@ -9,14 +9,17 @@ class ThreadPoll:
         self.max_threads = max_threads
         self.waiting = []
         self.lock = threading.Lock()
+        # count is used to make sure we dont have more than the max of allowed threads.
         self.count = 0
         self.active_threads = []
+        # condition is used to make sure all threads finished
+        self.condition = threading.Event()
 
     def execute(self, method=None, args=None):
-        # If we dont have a limit of threads, just start a new one
+        # If we don''t have a limit of threads, just start a new one
         if not self.max_threads:
             thread = threading.Thread(target=method, args=args)
-            self.actived_threads.append(thread)
+            self.active_threads.append(thread)
             thread.start()
         else:
             # if we do have a limit of threads, then we must check if it is possible to start a new one
@@ -27,18 +30,20 @@ class ThreadPoll:
             self.execute_from_waiting()
 
     def execute_from_waiting(self):
+            # we check if there is any thread in the waiting list and if we can initiate another one
             while self.waiting and self.count < self.max_threads:
                 thread = self.increase_return_thread()
                 if thread:
-                    self.actived_threads.append(thread)
+                    self.active_threads.append(thread)
                     thread.start()
 
     def increase_return_thread(self):
+        # increment number of active threads and return a thread to be started
         with self.lock:
             if self.waiting:
                 self.count += 1
                 thread = self.waiting.pop()
-                self.actived_threads.append(thread)
+                self.active_threads.append(thread)
             else:
                 thread = None
         return thread
@@ -46,32 +51,41 @@ class ThreadPoll:
     def decrease(self, thread):
         with self.lock:
             self.count -= 1
-            self.actived_threads.remove(thread)
+            self.active_threads.remove(thread)
         # Execute a thread from the waiting list
         self.execute_from_waiting()
+        # if after executing from waiting list we don' have any active threads, we can finish execution
+        if not self.active_threads:
+            self.condition.set()
+
+    # wait all threads to finish
+    def wait(self):
+        self.condition.wait()
 
 
-# product of two matrixes using threads
-def dot_product(matrix_a, matrix_b, result_matrix, max_threads=None):
-    matrix_a = np.array(matrix_a)
-    matrix_b = np.array(matrix_b)
+# calculate the product of two matrix using threads
+def dot_product(_matrix_a, _matrix_b, _result_matrix, max_threads=None):
+    _matrix_a = np.array(_matrix_a)
+    _matrix_b = np.array(_matrix_b)
 
     # Validating sizes:
-    lines_a, columns_a = matrix_a.shape
-    lines_b, columns_b = matrix_b.shape
+    _lines_a, _columns_a = _matrix_a.shape
+    _lines_b, _columns_b = _matrix_b.shape
 
-    if columns_a != lines_b:
-        raise RuntimeError("Number of columns of matrix_a and number of lines of matrix_b must be the same!")
+    if _columns_a != _lines_b:
+        raise RuntimeError("Number of columns of _matrix_a and number of lines of _matrix_b must be the same!")
 
     thread_pool = ThreadPoll(max_threads)
 
-    for line_index in range(lines_a):
-        line = matrix_a[line_index, :]
+    for line_index in range(_lines_a):
+        line = _matrix_a[line_index, :]
 
-        for column_index in range(columns_b):
-            column = matrix_b[:, column_index]
-            args = [line, line_index, column, column_index, result_matrix, thread_pool]
+        for column_index in range(_columns_b):
+            column = _matrix_b[:, column_index]
+            args = [line, line_index, column, column_index, _result_matrix, thread_pool]
             thread_pool.execute(dot_product_vector, args)
+    # wait for all threads to finish
+    thread_pool.wait()
 
 
 # calculate dot product between two vectors
@@ -82,11 +96,11 @@ def dot_product_vector(vector_1, i, vector_2, j, _result_matrix, thread_pool=Non
     for index in range(len(vector_1)):
         result += vector_1[index] * vector_2[index]
 
-    # print("antes ", _result_matrix[i, j])
     _result_matrix[i, j] = result
-    # print("depois ", _result_matrix[i, j])
     if thread_pool:
-        thread_pool.decrease()
+        # call decrease so we know that the thread finished and can start a new one from waiting list
+        thread_pool.decrease(threading.current_thread())
+    # to see a real difference using single and multi threaded, remove comment from line below
     # time.sleep(random.random())
 
 
@@ -111,8 +125,8 @@ def dot_product_matrix(_matrix_a, _matrix_b, _result_matrix):
 
 if __name__ == '__main__':
     # generating 2 random matrix
-    matrix_a = np.random.randint(10, size=(10, 10))
-    matrix_b = np.random.randint(10, size=(10, 10))
+    matrix_a = np.random.randint(10, size=(100, 100))
+    matrix_b = np.random.randint(10, size=(100, 100))
 
     lines_a, columns_a = matrix_a.shape
     lines_b, columns_b = matrix_b.shape
