@@ -1,5 +1,5 @@
 *.iml
 *.xml
-./idea/*
+*/idea/*
 */__pycache__
 *.pyc
